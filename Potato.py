@@ -20,6 +20,7 @@ def how_cointegrated(stock1, stock2):
     return pvalue
 
 def find_top_cointegrated_pairs(stock_prices_df):
+    print(f"finding cointegrated pairs...")
     P_VALUE_CUTOFF = 0.05
 
     # find p-values of how cointegrated each possible combination of stock pairs is
@@ -81,17 +82,25 @@ def getMyPosition(stock_prices):
                 ema_stocks.append(i)
         print(f"stocks for EMA: {ema_stocks}")
 
-    CALC_PAIRS_DAY = 200
+    CALC_PAIRS_DAY = 240
     BUY_AMOUNT = 5
     SELL_AMOUNT = -5
-    if stock_prices_df.shape[0] == CALC_PAIRS_DAY: # calculate pairs on day 200
+    calc_pairs_flag = False
+    pairs_calculated = False
+    if stock_prices_df.shape[0] == CALC_PAIRS_DAY or calc_pairs_flag: # calculate pairs on day 250
         pairs_trading_pairs = find_top_cointegrated_pairs(stock_prices_df)
 
         pairs_trading_stocks = np.array(pairs_trading_pairs).flatten()
-        ema_stocks = [stock for stock in stock_prices_df.columns if stock not in pairs_trading_stocks]
+        # ema_stocks = [stock for stock in stock_prices_df.columns if stock not in pairs_trading_stocks]
+        
+        calc_pairs_flag = False
+        pairs_calculated = True
 
     if stock_prices_df.shape[0] > CALC_PAIRS_DAY:
-        curr_pos = getPairsPosition(stock_prices_df, curr_day, curr_pos, pairs_trading_pairs)
+        if not pairs_calculated: # fallback flags, just in case pairs not calculated beforehand
+            calc_pairs_flag = True
+        else:
+            curr_pos = getPairsPosition(stock_prices_df, curr_day, curr_pos, pairs_trading_pairs)
 
     curr_pos = getEMAPosition(stock_prices_df[ema_stocks], curr_day, curr_pos, BUY_AMOUNT, SELL_AMOUNT)
     
