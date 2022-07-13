@@ -10,12 +10,11 @@ from calcMetrics import calcPL
 
 NUM_STOCKS = 100
 
-global stop_loss_ema #price of when we first bought stonks
-stop_loss_ema = []
-
-#functions for determining stock pairs for pairs trading
+# functions for determining stock pairs for pairs trading
 def how_cointegrated(stock1, stock2):
-    # determine how cointegrated stock1 and stock2 are
+    """
+    Determine how cointegrated stock1 and stock2 are.
+    """
     pvalue = coint(stock1, stock2)[1]
     
     return pvalue
@@ -23,7 +22,7 @@ def how_cointegrated(stock1, stock2):
 def find_top_cointegrated_pairs(stock_prices_df):
     P_VALUE_CUTOFF = 0.05
 
-    #find p-values of how cointegrated each possible combination of stock pairs is
+    # find p-values of how cointegrated each possible combination of stock pairs is
     cointegration_pairs = {}
     for i in range(len(stock_prices_df.columns)):
         for j in range(i + 1, len(stock_prices_df.columns)):
@@ -31,7 +30,8 @@ def find_top_cointegrated_pairs(stock_prices_df):
             cointegration_pairs[pair] = how_cointegrated(stock_prices_df[i], stock_prices_df[j])
     
     cointegration_pairs_series = pd.Series(cointegration_pairs).sort_values()
-    #pairs are considered cointegrated only if their p-value is below 0.05
+
+    # pairs are considered cointegrated only if their p-value is below 0.05
     cointegration_pairs_series = cointegration_pairs_series[cointegration_pairs_series < P_VALUE_CUTOFF]
 
     # find top possible cointegrated pairs without using the same instrument twice
@@ -48,7 +48,7 @@ def find_top_cointegrated_pairs(stock_prices_df):
 
     return top_pairs
 
-#initialize variable to store position of stocks the day before
+# initialize variable to store position of stocks the day before
 global prev_positions
 prev_positions = {}
 for stock in range(NUM_STOCKS):
@@ -57,7 +57,11 @@ for stock in range(NUM_STOCKS):
 curr_pos = np.zeros(100)
 
 def getMyPosition(stock_prices):
-    """Takes as input a NumPy array of the shape nInst x nt. nInst = 100 is the number of instruments. nt is the number of days for which the prices have been provided. Returns a vector of desired positions."""
+    """
+    Takes as input a NumPy array of the shape nInst x nt. nInst = 100 is the
+    number of instruments. nt is the number of days for which the prices have 
+    been provided. Returns a vector of desired positions.
+    """
     global curr_pos
 
     stock_prices_df = pd.DataFrame(stock_prices).T
@@ -78,21 +82,18 @@ def getMyPosition(stock_prices):
         print(f"stocks for EMA: {ema_stocks}")
 
     CALC_PAIRS_DAY = 200
-
-    #when getmyposition is run the first time, determine stocks to pair trade based on available price history data
-    if stock_prices_df.shape[0] == CALC_PAIRS_DAY :    # calculate pairs on day 200
-        # pass
-        print("Determining stocks for pairs trading")
+    BUY_AMOUNT = 5
+    SELL_AMOUNT = -5
+    if stock_prices_df.shape[0] == CALC_PAIRS_DAY: # calculate pairs on day 200
         pairs_trading_pairs = find_top_cointegrated_pairs(stock_prices_df)
 
         pairs_trading_stocks = np.array(pairs_trading_pairs).flatten()
         ema_stocks = [stock for stock in stock_prices_df.columns if stock not in pairs_trading_stocks]
 
     if stock_prices_df.shape[0] > CALC_PAIRS_DAY:
-        # pass
         curr_pos = getPairsPosition(stock_prices_df, curr_day, curr_pos, pairs_trading_pairs)
 
-    curr_pos = getEMAPosition(stock_prices_df[ema_stocks], curr_day, curr_pos, 5, -5)
+    curr_pos = getEMAPosition(stock_prices_df[ema_stocks], curr_day, curr_pos, BUY_AMOUNT, SELL_AMOUNT)
     
     return curr_pos
 
@@ -140,17 +141,21 @@ def getPairsPosition(stock_prices_df, curr_day, curr_pos, pairs_trading_pairs):
     return curr_pos
 
 def pair_to_long(curr_pos, stock_1, stock_2, curr_stock_1, curr_stock_2):
-    "conduct pair trade in the long position. go long on stock_1 and short on stock_2. return new positions"
-    MAX_POSITION_VALUE = 10000
-    curr_pos[stock_1] = 10#(MAX_POSITION_VALUE/curr_stock_1)
-    curr_pos[stock_2] = -10#(MAX_POSITION_VALUE/curr_stock_2)
+    """
+    Conduct pair trade in the long position. Go long on stock_1 and short on
+    stock_2. Return new positions.
+    """
+    curr_pos[stock_1] = 10
+    curr_pos[stock_2] = -10
 
     return curr_pos
 
 def pair_to_short(curr_pos, stock_1, stock_2, curr_stock_1, curr_stock_2):
-    "conduct pair trade in the short position. go short on stock_1 and long on stock_2 return new positions"
-    MAX_POSITION_VALUE = 10000
-    curr_pos[stock_1] = -10#(MAX_POSITION_VALUE/curr_stock_1)
-    curr_pos[stock_2] = 10#(MAX_POSITION_VALUE/curr_stock_2)
+    """
+    Conduct pair trade in the short position. Go short on stock_1 and long on
+    stock_2 return new positions.
+    """
+    curr_pos[stock_1] = -10
+    curr_pos[stock_2] = 10
     
     return curr_pos
