@@ -33,7 +33,7 @@ def getEMAPosition(stock_prices_df, curr_day, curr_pos, BUY_AMOUNT, SELL_AMOUNT)
     new_prices = new_buys * stock_prices_df.loc[curr_day]
 
     for i in new_prices.loc[new_prices > 0].index:
-        stop_loss_book[i] = (new_prices[i] + COMM_RATE*new_prices[i]) * (100 - STOP_LOSS_PERCENT)
+        stop_loss_book[i] = (new_prices[i]) * (100 - STOP_LOSS_PERCENT)
 
     # Add stop-losses to sells
     for i in stock_prices_df.columns:

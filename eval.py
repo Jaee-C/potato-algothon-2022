@@ -74,8 +74,6 @@ def calcPL(prcHist):
         annSharpe = 16 * plmu / plstd
     return (plmu, ret, annSharpe, totDVolume)
 
-
-
 tStart = time.time()
 (meanpl, ret, sharpe, dvol) = calcPL(prcAll)
 tEnd = time.time()
