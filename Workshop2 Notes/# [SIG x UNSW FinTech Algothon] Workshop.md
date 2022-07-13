@@ -58,4 +58,3 @@
 * 100 instruments
   * price: 250?
 * allowed to have long and short positions
-* 
