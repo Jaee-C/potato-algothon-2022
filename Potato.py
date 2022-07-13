@@ -4,16 +4,49 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+from statsmodels.tsa.stattools import coint
+from emaStrategy import getEMAPosition
+from calcMetrics import calcPL
+
 NUM_STOCKS = 100
 
-global pairs_trading_pairs #stocks used for pair trading
-pairs_trading_pairs = [(61, 35), (49, 60), (25, 69), (59, 9), (81, 38), (92, 88), (68, 80), (90, 39), (11, 76), (43, 53), (12, 18), (31, 70), (8, 91), (99, 58), (42, 33), (51, 89), (83, 20), (71, 66), (17, 16), (74, 44), (57, 36), (96, 47), (13, 62), (6, 97), (26, 10), (78, 15), (45, 93), (55, 41), (23, 52), (87, 34), (64, 75), (2, 63), (56, 84), (86, 0)]
+global stop_loss_ema #price of when we first bought stonks
+stop_loss_ema = []
 
-global ema_stocks #stocks used for ema (basically all the stocks not used for pairs trading)
-ema_stocks = [1, 3, 4, 5, 7, 14, 19, 21, 22, 24, 27, 28, 29, 30, 32, 37, 40, 46, 48, 50, 54, 65, 67, 72, 73, 77, 79, 82, 85, 94, 95, 98]
+#functions for determining stock pairs for pairs trading
+def how_cointegrated(stock1, stock2):
+    # determine how cointegrated stock1 and stock2 are
+    pvalue = coint(stock1, stock2)[1]
+    
+    return pvalue
 
-#computations for determining ema_stocks and pairs_trading_pairs were done offline on price data from day 0-250. to see how it was done view ___.ipynb
-#^is this legal
+def find_top_cointegrated_pairs(stock_prices_df):
+    P_VALUE_CUTOFF = 0.05
+
+    #find p-values of how cointegrated each possible combination of stock pairs is
+    cointegration_pairs = {}
+    for i in range(len(stock_prices_df.columns)):
+        for j in range(i + 1, len(stock_prices_df.columns)):
+            pair = (i, j)
+            cointegration_pairs[pair] = how_cointegrated(stock_prices_df[i], stock_prices_df[j])
+    
+    cointegration_pairs_series = pd.Series(cointegration_pairs).sort_values()
+    #pairs are considered cointegrated only if their p-value is below 0.05
+    cointegration_pairs_series = cointegration_pairs_series[cointegration_pairs_series < P_VALUE_CUTOFF]
+
+    # find top possible cointegrated pairs without using the same instrument twice
+    all_pairs = list(cointegration_pairs_series.index)
+    top_pairs = []
+    for pair in cointegration_pairs_series.index:
+        if pair in all_pairs:
+            top_pairs.append(pair)
+            to_remove = []
+            for pairs in all_pairs:
+                if (pair[0] in pairs) or (pair[1] in pairs):    
+                    to_remove.append(pairs)
+            all_pairs = [pair for pair in all_pairs if pair not in to_remove]
+
+    return top_pairs
 
 #initialize variable to store position of stocks the day before
 global prev_positions
@@ -21,56 +54,46 @@ prev_positions = {}
 for stock in range(NUM_STOCKS):
     prev_positions[stock] = 0
 
+curr_pos = np.zeros(100)
+
 def getMyPosition(stock_prices):
     """Takes as input a NumPy array of the shape nInst x nt. nInst = 100 is the number of instruments. nt is the number of days for which the prices have been provided. Returns a vector of desired positions."""
+    global curr_pos
 
     stock_prices_df = pd.DataFrame(stock_prices).T
     curr_day = len(stock_prices[0]) - 1
-    curr_pos = np.zeros(100)
     
-    # curr_pos = getPairsPosition(stock_prices_df, curr_day, curr_pos, pairs_trading_pairs)
-    curr_pos = getEMAPosition(stock_prices_df[ema_stocks], curr_day, curr_pos)
+    global pairs_trading_pairs
+    global ema_stocks
+    ema_stocks = [x for x in range(100)] #start off trading with EMA on all stocks
 
-    return curr_pos
+    CALC_EMA_DAY = 50
+    if stock_prices_df.shape[0] == CALC_EMA_DAY:
+        ema_stocks = []
+        for i in range(100):
+            prcAll = stock_prices_df[[i]]
+            (meanpl, ret, sharpe, dvol) = calcPL(prcAll.values.T, i, CALC_EMA_DAY)
+            if (meanpl > 0):
+                ema_stocks.append(i)
+        print(f"stocks for EMA: {ema_stocks}")
 
-def getEMAPosition(stock_prices_df, curr_day, curr_pos):
-    ema5 = stock_prices_df.ewm(span=10, adjust=False).mean()
-    ema20 = stock_prices_df.ewm(span=30, adjust=False).mean()
-    ema50 = stock_prices_df.ewm(span=60, adjust=False).mean()
-    # ema100 = stock_prices_df.ewm(span=100, adjust=False).mean()
+    CALC_PAIRS_DAY = 200
 
-    buy_signals = ema5.gt(ema20) & (stock_prices_df.gt(ema50) & ema5.gt(ema50) & ema20.gt(ema50))
-    sell_signals = ema5.lt(ema20) #& (stock_prices_df.lt(ema50) & ema5.lt(ema50) & ema20.lt(ema50))
+    #when getmyposition is run the first time, determine stocks to pair trade based on available price history data
+    if stock_prices_df.shape[0] == CALC_PAIRS_DAY :    # calculate pairs on day 200
+        # pass
+        print("Determining stocks for pairs trading")
+        pairs_trading_pairs = find_top_cointegrated_pairs(stock_prices_df)
 
-    buy_signals = buy_signals.replace({True: 1, False: 0})
-    sell_signals = sell_signals.replace({True: -1, False: 0})
-    trading_positions = (buy_signals + sell_signals) * 10
+        pairs_trading_stocks = np.array(pairs_trading_pairs).flatten()
+        ema_stocks = [stock for stock in stock_prices_df.columns if stock not in pairs_trading_stocks]
 
-    last_day = trading_positions.iloc[-1:]
-    transposed_trading_positions = last_day.T
-    trading_positions_final = transposed_trading_positions.iloc[:, 0]
-    new_positions = trading_positions_final.mask(trading_positions_final == 0, curr_pos)
-    new_positions = trading_positions_final.shift(1)
-    new_positions = new_positions.replace({np.nan: 0})
+    if stock_prices_df.shape[0] > CALC_PAIRS_DAY:
+        # pass
+        curr_pos = getPairsPosition(stock_prices_df, curr_day, curr_pos, pairs_trading_pairs)
 
-    #update current position
-    for i in new_positions.index:
-        curr_pos[i] = new_positions[i]
-
-    return curr_pos
-
-    # OLD
-    ema = stock_prices_df.ewm(span=100, adjust=False).mean()
-
-    trading_positions_raw = stock_prices_df - ema
-    trading_positions = trading_positions_raw.apply(np.sign) * 10
-    trading_positions_final = trading_positions.shift(1)
-    new_positions = trading_positions_final.iloc[-1:].fillna(0)
-
-    # update current position
-    for i in new_positions.columns:
-        curr_pos[i] = new_positions[i].iloc[-1]
-
+    curr_pos = getEMAPosition(stock_prices_df[ema_stocks], curr_day, curr_pos, 5, -5)
+    
     return curr_pos
 
 def getPairsPosition(stock_prices_df, curr_day, curr_pos, pairs_trading_pairs):
@@ -119,15 +142,15 @@ def getPairsPosition(stock_prices_df, curr_day, curr_pos, pairs_trading_pairs):
 def pair_to_long(curr_pos, stock_1, stock_2, curr_stock_1, curr_stock_2):
     "conduct pair trade in the long position. go long on stock_1 and short on stock_2. return new positions"
     MAX_POSITION_VALUE = 10000
-    curr_pos[stock_1] = (MAX_POSITION_VALUE/curr_stock_1)
-    curr_pos[stock_2] = -(MAX_POSITION_VALUE/curr_stock_2)
+    curr_pos[stock_1] = 100#(MAX_POSITION_VALUE/curr_stock_1)
+    curr_pos[stock_2] = -100#(MAX_POSITION_VALUE/curr_stock_2)
 
     return curr_pos
 
 def pair_to_short(curr_pos, stock_1, stock_2, curr_stock_1, curr_stock_2):
     "conduct pair trade in the short position. go short on stock_1 and long on stock_2 return new positions"
     MAX_POSITION_VALUE = 10000
-    curr_pos[stock_1] = -(MAX_POSITION_VALUE/curr_stock_1)
-    curr_pos[stock_2] = (MAX_POSITION_VALUE/curr_stock_2)
+    curr_pos[stock_1] = -100#(MAX_POSITION_VALUE/curr_stock_1)
+    curr_pos[stock_2] = 100#(MAX_POSITION_VALUE/curr_stock_2)
     
     return curr_pos
