@@ -142,15 +142,15 @@ def getPairsPosition(stock_prices_df, curr_day, curr_pos, pairs_trading_pairs):
 def pair_to_long(curr_pos, stock_1, stock_2, curr_stock_1, curr_stock_2):
     "conduct pair trade in the long position. go long on stock_1 and short on stock_2. return new positions"
     MAX_POSITION_VALUE = 10000
-    curr_pos[stock_1] = 100#(MAX_POSITION_VALUE/curr_stock_1)
-    curr_pos[stock_2] = -100#(MAX_POSITION_VALUE/curr_stock_2)
+    curr_pos[stock_1] = 10#(MAX_POSITION_VALUE/curr_stock_1)
+    curr_pos[stock_2] = -10#(MAX_POSITION_VALUE/curr_stock_2)
 
     return curr_pos
 
 def pair_to_short(curr_pos, stock_1, stock_2, curr_stock_1, curr_stock_2):
     "conduct pair trade in the short position. go short on stock_1 and long on stock_2 return new positions"
     MAX_POSITION_VALUE = 10000
-    curr_pos[stock_1] = -100#(MAX_POSITION_VALUE/curr_stock_1)
-    curr_pos[stock_2] = 100#(MAX_POSITION_VALUE/curr_stock_2)
+    curr_pos[stock_1] = -10#(MAX_POSITION_VALUE/curr_stock_1)
+    curr_pos[stock_2] = 10#(MAX_POSITION_VALUE/curr_stock_2)
     
     return curr_pos
