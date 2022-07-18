@@ -61,13 +61,23 @@ relative to its pair
 * Overall, we would take a long position on the pairs trade
 
 ### Implementation
-* the pair strategy's code is located in `Potato.py`
-* it takes the first 240 days of data to determine which stocks are good pairs through cointegration
-* as such, this strategy only starts trading after the 240th day
+* The pair strategy's code is located in `Potato.py`
+* It takes the first 240 days of data to determine which stocks are good pairs through cointegration
+* As such, this strategy only starts trading after the 240th day
 1.  Determine most cointegrated stock pairs to pairs trade on
 2. Whenever getMyPosition() is called, calculate the 30 day rolling mean and standard deviation of the spread of the pairs to determine moving upper and lower spread thresholds
 3. The spread thresholds for when we will perform trades on a pair will be:
 4. Upper threshold: Mean + 2 * standard deviation → If spread exceeds this, short the pair 5. Lower threshold: Mean - 2 * standard deviation → If spread is below this, long the pair
+
+---
+## Results and Future Improvements
+```
+mean(PL): 1
+return: 0.01322
+annSharpe(PL): 2.18
+totDvolume: 24102
+runTime  : 88.882
+```
 
 ---
 

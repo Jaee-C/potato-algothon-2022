@@ -20,6 +20,7 @@ def getEMAPosition(stock_prices_df, curr_day, curr_pos, BUY_AMOUNT, SELL_AMOUNT)
     # buy when shorter term EMAs are larger then longer term EMAs
     buy_signals = ema10.gt(ema30) & (stock_prices_df.gt(ema60) & ema10.gt(ema60) & ema30.gt(ema60))
     buy_signals = buy_signals.replace({True: BUY_AMOUNT, False: 0})
+
     # sell when shorter term EMAs are smaller than longer term EMAs
     sell_signals = ema10.lt(ema30) | ema30.lt(ema60)
     sell_signals = sell_signals.replace({True: SELL_AMOUNT, False: 0})
@@ -35,9 +36,10 @@ def getEMAPosition(stock_prices_df, curr_day, curr_pos, BUY_AMOUNT, SELL_AMOUNT)
     for i in new_prices.loc[new_prices > 0].index:
         stop_loss_book[i] = (new_prices[i]) * (100 - STOP_LOSS_PERCENT)
 
-    # Add stop-losses to sells
+    # Add stop-losses to sell
     for i in stock_prices_df.columns:
         if curr_pos[i] and stock_prices_df.loc[curr_day, i] <= stop_loss_book[i]:
+            print("  yes")
             trading_positions_final[i] = 0
     
     new_positions = trading_positions_final.mask(trading_positions_final == 0, curr_pos)
