@@ -27,7 +27,6 @@ def getMyPosition(stock_prices):
 
     BUY_AMOUNT = 5
     SELL_AMOUNT = -5
-    # curr_pos = getEMAPosition(stock_prices_df[ema_stocks], curr_day, curr_pos, BUY_AMOUNT, SELL_AMOUNT)
 
     curr_day = stock_prices_df.shape[0]-1
 
